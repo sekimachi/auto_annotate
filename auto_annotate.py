@@ -20,19 +20,20 @@ try:
     if 0 <= model_index < len(models):
         MODEL_PATH = models[model_index]
     else:
-        MODEL_PATH = "best.pt"
+        MODEL_PATH = "main.pt"
 except ValueError:
-    MODEL_PATH = "best.pt"
+    MODEL_PATH = "main.pt"
 
 os.makedirs(LABEL_DIR, exist_ok=True)
 
 model = YOLO(MODEL_PATH)
 
+# ===== 操作説明表示 =====
 def add_instructions(img):
     instructions = [
         "Keyboard shortcuts:",
         "Left Drag  : Add box",
-        "Right Drag : Delete box",
+        "Shift + Left Drag : Delete box",
         "g: Auto annotate (YOLO)",
         "s: Save annotations",
         "c: Clear all boxes",
@@ -49,10 +50,8 @@ def add_instructions(img):
     return img
 
 # ===== グローバル変数 =====
-drawing = False
-right_drawing = False
+drawing_mode = None
 start_x, start_y = -1, -1
-right_start_x, right_start_y = -1, -1
 boxes = []
 current_img = None
 
@@ -71,35 +70,38 @@ def boxes_overlap(box1, box2):
     a1, b1, a2, b2 = box2
     return not (x2 < a1 or x1 > a2 or y2 < b1 or y1 > b2)
 
+# ===== マウス処理 =====
 def draw_rectangle(event, x, y, flags, param):
-    global drawing, right_drawing
-    global start_x, start_y, right_start_x, right_start_y
-    global boxes
+    global drawing_mode, start_x, start_y, boxes
 
     if event == cv2.EVENT_LBUTTONDOWN:
-        drawing = True
+
         start_x, start_y = x, y
 
-    elif event == cv2.EVENT_RBUTTONDOWN:
-        right_drawing = True
-        right_start_x, right_start_y = x, y
+        # 🔥 Shift押しながら → 削除モード
+        if flags & cv2.EVENT_FLAG_SHIFTKEY:
+            drawing_mode = "delete"
+        else:
+            drawing_mode = "add"
 
     elif event == cv2.EVENT_MOUSEMOVE:
+
         img_copy = current_img.copy()
         h, w = img_copy.shape[:2]
 
+        # クロスヘア
         cv2.line(img_copy, (x, 0), (x, h), (255, 255, 255), 1)
         cv2.line(img_copy, (0, y), (w, y), (255, 255, 255), 1)
 
-        if drawing:
+        if drawing_mode == "add":
             cv2.rectangle(img_copy,
                           (start_x, start_y),
                           (x, y),
                           (0, 255, 0), 2)
 
-        if right_drawing:
+        elif drawing_mode == "delete":
             cv2.rectangle(img_copy,
-                          (right_start_x, right_start_y),
+                          (start_x, start_y),
                           (x, y),
                           (0, 0, 255), 2)
 
@@ -113,32 +115,29 @@ def draw_rectangle(event, x, y, flags, param):
         cv2.imshow("Manual Annotation", img_copy)
 
     elif event == cv2.EVENT_LBUTTONUP:
-        drawing = False
+
         end_x, end_y = x, y
 
-        if start_x != end_x and start_y != end_y:
-            boxes.append((
+        if drawing_mode == "add":
+            if start_x != end_x and start_y != end_y:
+                boxes.append((
+                    min(start_x, end_x),
+                    min(start_y, end_y),
+                    max(start_x, end_x),
+                    max(start_y, end_y)
+                ))
+
+        elif drawing_mode == "delete":
+            delete_rect = (
                 min(start_x, end_x),
                 min(start_y, end_y),
                 max(start_x, end_x),
                 max(start_y, end_y)
-            ))
-        redraw()
-
-    elif event == cv2.EVENT_RBUTTONUP:
-        right_drawing = False
-        end_x, end_y = x, y
-
-        if right_start_x != end_x and right_start_y != end_y:
-            delete_rect = (
-                min(right_start_x, end_x),
-                min(right_start_y, end_y),
-                max(right_start_x, end_x),
-                max(right_start_y, end_y)
             )
 
             boxes[:] = [b for b in boxes if not boxes_overlap(b, delete_rect)]
 
+        drawing_mode = None
         redraw()
 
 # ===== 画像取得 =====
@@ -157,6 +156,11 @@ while index < len(img_list):
     current_img = cv2.imread(img_path)
     boxes = []
 
+    if current_img is None:
+        print(f"画像を読み込めません: {img_name}")
+        index += 1
+        continue
+
     h, w, _ = current_img.shape
 
     print(f"Annotating: {img_name} ({index+1}/{len(img_list)})")
@@ -169,6 +173,7 @@ while index < len(img_list):
     while True:
         key = cv2.waitKey(1) & 0xFF
 
+        # ===== YOLO自動アノテーション =====
         if key == ord('g'):
             print("Running YOLO auto annotation...")
             results = model(current_img, conf=CONF_THRES)
@@ -183,6 +188,7 @@ while index < len(img_list):
             print(f"Auto annotations: {len(boxes)}")
             redraw()
 
+        # ===== 保存 =====
         elif key == ord('s'):
             label_path = os.path.join(
                 LABEL_DIR,
