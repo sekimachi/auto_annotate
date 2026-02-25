@@ -5,8 +5,8 @@ from ultralytics import YOLO
 # ===============================
 # YOLO 設定
 # ===============================
-MODEL_PATH = "best_yellow.pt"
-CONF_TH = 0.5
+MODEL_PATH = "main.pt"
+CONF_TH = 0.1
 ALLOWED_CLASS_IDS = [0, 1, 2, 3]   # 学習済みクラス
 MIN_AREA_RATIO = 0.01
 NMS_IOU_TH = 0.5
@@ -86,7 +86,7 @@ try:
         display = frame.copy()
         detections = []
 
-        # 検出収集
+        # 検出結果の収集
         for result in results:
             if result.boxes is None:
                 continue
@@ -99,6 +99,7 @@ try:
                 x1, y1, x2, y2 = map(int, box)
                 w, h = x2 - x1, y2 - y1
 
+                # 面積フィルタ
                 if (w * h) / img_area < MIN_AREA_RATIO:
                     continue
 
@@ -106,10 +107,12 @@ try:
                     (x1, y1, x2, y2, float(score))
                 )
 
+        # NMS
         detections = suppress_boxes(detections, NMS_IOU_TH)
 
-        # 描画（枠線のみ）
+        # 描画（枠 + confidence）
         for x1, y1, x2, y2, score in detections:
+            # バウンディングボックス
             cv2.rectangle(
                 display,
                 (x1, y1),
@@ -118,9 +121,22 @@ try:
                 2
             )
 
+            # confidence 表示
+            label = f"{score:.2f}"
+            cv2.putText(
+                display,
+                label,
+                (x1, y1 - 8),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 0),
+                2,
+                cv2.LINE_AA
+            )
 
         cv2.imshow("Webcam YOLO Ball Detection (Minimal)", display)
 
+        # ESCキーで終了
         if cv2.waitKey(1) & 0xFF == 27:
             break
 
