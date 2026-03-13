@@ -21,13 +21,8 @@ def crop_to_4_3(img):
 
 # ====== 動画を指定（最大6つまで）======
 video_paths = [
-    "IMG_2518.mov",
-    "IMG_2516.mov",
-    "IMG_2517.mov",
-    "IMG_4242.mov",
-    "IMG_4243.mov",
-    "IMG_4244.mov",
-    # ここに追加してOK（最大6個）
+    "1.webm",
+
 ]
 
 # 🔥 6個制限

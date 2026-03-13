@@ -5,7 +5,7 @@ from ultralytics import YOLO
 # ===============================
 # YOLO 設定
 # ===============================
-MODEL_PATH = "main.pt"
+MODEL_PATH = "best_red.pt"
 CONF_TH = 0.1
 ALLOWED_CLASS_IDS = [0, 1, 2, 3]   # 学習済みクラス
 MIN_AREA_RATIO = 0.01

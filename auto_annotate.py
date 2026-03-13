@@ -6,7 +6,7 @@ import cv2
 # ===== 設定 =====
 IMAGE_DIR = "images"
 LABEL_DIR = "labels"
-CONF_THRES = 0.4
+CONF_THRES = 0.3
 
 models = ["best_blue.pt", "best_red.pt", "best_yellow.pt"]
 
@@ -78,7 +78,7 @@ def draw_rectangle(event, x, y, flags, param):
 
         start_x, start_y = x, y
 
-        # 🔥 Shift押しながら → 削除モード
+        #  Shift押しながら → 削除モード
         if flags & cv2.EVENT_FLAG_SHIFTKEY:
             drawing_mode = "delete"
         else:
